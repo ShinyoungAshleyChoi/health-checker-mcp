@@ -1,0 +1,13 @@
+{
+  "name": "mcp-shim",
+  "sourceRoot": "apps/mcp-shim/src",
+  "projectType": "application",
+  "targets": {
+    "serve": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "cd apps/mcp-shim && npm run start"
+      }
+    }
+  }
+}

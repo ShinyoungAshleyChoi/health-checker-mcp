@@ -1,0 +1,37 @@
+{
+  "name": "ios-app",
+  "sourceRoot": "apps/ios-app",
+  "projectType": "application",
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "cd apps/ios-app && swift build"
+      }
+    },
+    "run": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "cd apps/ios-app && swift run HealthCheckerApp"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "cd apps/ios-app && swift test"
+      }
+    },
+    "clean": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "cd apps/ios-app && swift package clean"
+      }
+    },
+    "resolve": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "cd apps/ios-app && swift package resolve"
+      }
+    }
+  }
+}

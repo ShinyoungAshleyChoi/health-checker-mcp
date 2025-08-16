@@ -1,0 +1,13 @@
+{
+  "name": "api-python",
+  "sourceRoot": "apps/api-python",
+  "projectType": "application",
+  "targets": {
+    "serve": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "cd apps/api-python && uv run uvicorn main:app --reload"
+      }
+    }
+  }
+}
