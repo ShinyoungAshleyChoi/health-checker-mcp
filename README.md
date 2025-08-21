@@ -1,77 +1,124 @@
-# HealthCheckerMcp
+# Health Checker MCP
 
-<a alt="Nx logo" href="https://nx.dev" target="_blank" rel="noreferrer"><img src="https://raw.githubusercontent.com/nrwl/nx/master/images/nx-logo.png" width="45"></a>
+An iOS app that reads health data from your iPhone using HealthKit and sends it to an MCP (Model Context Protocol) server.
 
-✨ Your new, shiny [Nx workspace](https://nx.dev) is almost ready ✨.
+## Architecture
 
-[Learn more about this workspace setup and its capabilities](https://nx.dev/getting-started/intro#learn-nx?utm_source=nx_project&amp;utm_medium=readme&amp;utm_campaign=nx_projects) or run `npx nx graph` to visually explore what was created. Now, let's get you up to speed!
+- **iOS App** (`apps/ios-app/`): Swift command-line app that reads HealthKit data
+- **Python API** (`apps/api-python/`): FastAPI server that receives health data
+- **MCP Shim** (`apps/mcp-shim/`): Node.js MCP protocol handler
 
-## Finish your CI setup
+## Prerequisites
 
-[Click here to finish setting up your workspace!](https://cloud.nx.app/connect/EEpZ21VM96)
+- **macOS** with Xcode and Swift toolchain
+- **Python 3.8+** with pip
+- **Node.js 18+** with npm
+- **iPhone/iPad** with health data (for testing)
 
+## Setup & Installation
 
-## Run tasks
+### 1. Install Dependencies
 
-To run tasks with Nx use:
+```bash
+# Install Python dependencies
+cd apps/api-python
+pip install fastapi uvicorn
 
-```sh
-npx nx <target> <project-name>
+# Install Node.js dependencies
+cd ../mcp-shim
+npm install
+
+# Build iOS app
+cd ../ios-app
+swift build
 ```
 
-For example:
+### 2. Run the API Server
 
-```sh
-npx nx build myproject
+```bash
+cd apps/api-python
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-These targets are either [inferred automatically](https://nx.dev/concepts/inferred-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) or defined in the `project.json` or `package.json` files.
+The API will be available at `http://localhost:8000`
 
-[More about running tasks in the docs &raquo;](https://nx.dev/features/run-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+### 3. Run the iOS App
 
-## Add new projects
-
-While you could add new projects to your workspace manually, you might want to leverage [Nx plugins](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) and their [code generation](https://nx.dev/features/generate-code?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) feature.
-
-To install a new plugin you can use the `nx add` command. Here's an example of adding the React plugin:
-```sh
-npx nx add @nx/react
+```bash
+cd apps/ios-app
+swift run HealthCheckerApp --server-url http://localhost:8000 --verbose
 ```
 
-Use the plugin's generator to create new projects. For example, to create a new React app or library:
+## Health Data Types
 
-```sh
-# Generate an app
-npx nx g @nx/react:app demo
+The app reads the following health metrics:
+- **Step Count** (daily total)
+- **Heart Rate** (most recent)
+- **Active Energy Burned** (daily total)
+- **Walking/Running Distance** (daily total)
+- **Body Mass** (most recent)
+- **Height** (most recent)
 
-# Generate a library
-npx nx g @nx/react:lib some-lib
+## API Endpoints
+
+- `GET /` - API information
+- `GET /health` - Health check
+- `POST /health-data` - Receive health data from iOS app
+- `GET /health-data/latest` - Get latest health data
+- `GET /health-data?limit=N` - Get recent health data (default: 10)
+
+## Usage Example
+
+1. **Start the API server:**
+```bash
+cd apps/api-python && uvicorn main:app --port 8000
 ```
 
-You can use `npx nx list` to get a list of installed plugins. Then, run `npx nx list <plugin-name>` to learn about more specific capabilities of a particular plugin. Alternatively, [install Nx Console](https://nx.dev/getting-started/editor-setup?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) to browse plugins and generators in your IDE.
+2. **Run the iOS app:**
+```bash
+cd apps/ios-app && swift run HealthCheckerApp --verbose
+```
 
-[Learn more about Nx plugins &raquo;](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) | [Browse the plugin registry &raquo;](https://nx.dev/plugin-registry?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+3. **Check received data:**
+```bash
+curl http://localhost:8000/health-data/latest
+```
 
+## Health Permissions
 
-[Learn more about Nx on CI](https://nx.dev/ci/intro/ci-with-nx#ready-get-started-with-your-provider?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+The iOS app will request permission to read:
+- Physical activity data (steps, distance, energy)
+- Vital signs (heart rate)
+- Body measurements (weight, height)
 
-## Install Nx Console
+Grant these permissions in Settings > Privacy & Security > Health when prompted.
 
-Nx Console is an editor extension that enriches your developer experience. It lets you run tasks, generate code, and improves code autocompletion in your IDE. It is available for VSCode and IntelliJ.
+## Development
 
-[Install Nx Console &raquo;](https://nx.dev/getting-started/editor-setup?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+### Testing the API
 
-## Useful links
+```bash
+# Test health endpoint
+curl http://localhost:8000/health
 
-Learn more:
+# Test with sample data
+curl -X POST http://localhost:8000/health-data \
+  -H "Content-Type: application/json" \
+  -d '{
+    "stepCount": 8500,
+    "heartRate": 72,
+    "activeEnergyBurned": 245.5,
+    "timestamp": "2024-01-01T12:00:00Z"
+  }'
+```
 
-- [Learn more about this workspace setup](https://nx.dev/getting-started/intro#learn-nx?utm_source=nx_project&amp;utm_medium=readme&amp;utm_campaign=nx_projects)
-- [Learn about Nx on CI](https://nx.dev/ci/intro/ci-with-nx?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Releasing Packages with Nx release](https://nx.dev/features/manage-releases?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [What are Nx plugins?](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+### Building for Different Platforms
 
-And join the Nx community:
-- [Discord](https://go.nx.dev/community)
-- [Follow us on X](https://twitter.com/nxdevtools) or [LinkedIn](https://www.linkedin.com/company/nrwl)
-- [Our Youtube channel](https://www.youtube.com/@nxdevtools)
-- [Our blog](https://nx.dev/blog?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+The iOS app is configured for:
+- iOS 16.0+
+- macOS 13.0+
+
+For iPhone deployment, you'll need to:
+1. Create an iOS project in Xcode
+2. Add HealthKit entitlements
+3. Configure provisioning profiles

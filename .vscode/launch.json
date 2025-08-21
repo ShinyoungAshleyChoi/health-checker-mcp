@@ -1,0 +1,22 @@
+{
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:health-checker-mcp}/apps/ios-app",
+            "name": "Debug HealthCheckerApp (apps/ios-app)",
+            "program": "${workspaceFolder:health-checker-mcp}/apps/ios-app/.build/debug/HealthCheckerApp",
+            "preLaunchTask": "swift: Build Debug HealthCheckerApp (apps/ios-app)"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:health-checker-mcp}/apps/ios-app",
+            "name": "Release HealthCheckerApp (apps/ios-app)",
+            "program": "${workspaceFolder:health-checker-mcp}/apps/ios-app/.build/release/HealthCheckerApp",
+            "preLaunchTask": "swift: Build Release HealthCheckerApp (apps/ios-app)"
+        }
+    ]
+}

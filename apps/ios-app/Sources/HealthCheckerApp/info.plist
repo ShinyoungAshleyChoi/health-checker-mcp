@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>UIRequiredDeviceCapabilities</key>
+	<array>
+		<string>Healthkit</string>
+	</array>
+	<key>NSHealthShareUsageDescription</key>
+	<string>이 앱은 걸음 수, 심박수 등의 건강 데이터를 읽기 위해 접근 권한이 필요합니다.</string>
+</dict>
+</plist>

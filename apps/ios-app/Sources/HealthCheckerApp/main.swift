@@ -1,58 +1,41 @@
 import Foundation
 import ArgumentParser
 
-@main
 struct HealthCheckerApp: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "health-checker",
-        abstract: "A health checker application with MCP integration",
-        version: "1.0.0"
+        abstract: "iOS Health Data Reader and MCP Client"
     )
-
-    @Option(name: .shortAndLong, help: "API server URL")
-    var apiUrl: String = "http://localhost:8001"
-
-    @Option(name: .shortAndLong, help: "MCP shim URL")
-    var mcpUrl: String = "http://localhost:3000"
-
-    @Flag(name: .shortAndLong, help: "Enable verbose output")
+    
+    @Option(name: .shortAndLong, help: "MCP server URL")
+    var serverUrl: String = "http://localhost:8000"
+    
+    @Flag(name: .shortAndLong, help: "Enable verbose logging")
     var verbose: Bool = false
-
+    
     func run() async throws {
-        print("🏥 Health Checker iOS App Starting...")
-
         if verbose {
-            print("📡 API URL: \(apiUrl)")
-            print("🔗 MCP URL: \(mcpUrl)")
+            print("Starting Health Checker App...")
+            print("MCP Server URL: \(serverUrl)")
         }
-
-        // Python API 헬스체크
-        await checkAPI(url: "\(apiUrl)/health", name: "Python API")
-
-        // MCP Shim 연결 테스트
-        await checkAPI(url: mcpUrl, name: "MCP Shim")
-    }
-
-    private func checkAPI(url: String, name: String) async {
-        print("\n🔍 Checking \(name)...")
-
-        guard let url = URL(string: url) else {
-            print("❌ Invalid URL: \(url)")
-            return
-        }
-
+        
+        let healthManager = HealthDataManager()
+        let mcpClient = MCPClient(serverUrl: serverUrl)
+        
         do {
-            let (data, response) = try await URLSession.shared.data(from: url)
-
-            if let httpResponse = response as? HTTPURLResponse,
-               httpResponse.statusCode == 200 {
-                let responseString = String(data: data, encoding: .utf8) ?? "No response body"
-                print("✅ \(name): \(responseString)")
-            } else {
-                print("❌ \(name) Failed: \(response)")
-            }
+            // Request HealthKit authorization
+            try await healthManager.requestAuthorization()
+            
+            // Read health data
+            let healthData = try await healthManager.readHealthData()
+            
+            // Send to MCP server
+            try await mcpClient.sendHealthData(healthData)
+            
+            print("Health data successfully sent to MCP server")
         } catch {
-            print("❌ \(name) Error: \(error)")
+            print("Error: \(error.localizedDescription)")
+            throw ExitCode.failure
         }
     }
 }
