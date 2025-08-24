@@ -1,8 +1,8 @@
 import SwiftUI
+import Combine
 
 struct SendNowView: View {
-    // ⚠️ 네 서버 주소로 바꿔줘야 해
-    private let client = MCPClient(serverUrl: "https://your-mcp-server.example.com")
+    private let client = MCPClient(serverUrl: "https://localhost:8000")
     
     @State private var lastSentAt: Date? = MCPClient.loadLastSentAt()
     @State private var isSending = false
@@ -14,38 +14,31 @@ struct SendNowView: View {
                 Text("마지막 전송 시간")
                     .font(.headline)
                 Text(formatted(lastSentAt))
-                    .font(.title3)
-                    .monospacedDigit()
+                    .font(.system(size: 17, weight: .regular, design: .monospaced))
             }
 
             if let statusText {
                 Text(statusText)
                     .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .foregroundColor(.secondary)
             }
 
             Button {
-                Task { await sendNow() }
+                Task { @MainActor [client] in
+                    await sendNow(client: client)
+                }
             } label: {
                 if isSending {
                     ProgressView().padding(.vertical, 8)
                 } else {
                     Text("지금 전송")
-                        .font(.body.weight(.semibold))
+                        .font(.body)
+                        .fontWeight(.semibold)
                         .padding(.vertical, 8)
                 }
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(PlainButtonStyle())
             .disabled(isSending)
-
-            // 옵션: 서버 연결 확인용
-            Button("서버 연결 테스트") {
-                Task {
-                    let ok = (try? await client.testConnection()) ?? false
-                    statusText = ok ? "서버 연결 OK" : "서버 연결 실패"
-                }
-            }
-            .buttonStyle(.bordered)
         }
         .padding(24)
         .onReceive(NotificationCenter.default.publisher(for: .mcpBackgroundUploadFinished)) { _ in
@@ -54,7 +47,8 @@ struct SendNowView: View {
         }
     }
 
-    private func sendNow() async {
+    @MainActor
+    private func sendNow(client: MCPClient) async {
         isSending = true
         defer { isSending = false }
         statusText = "전송 중…"
@@ -82,10 +76,19 @@ struct SendNowView: View {
 }
 
 // MARK: - 샘플 데이터 (HealthData 정의와 맞게 수정/삭제)
-//extension HealthData {
-//    static func sample() -> HealthData {
-//        return HealthData(
-//
-//        ) // HealthData 모델 초기화에 맞게 수정
-//    }
-//}
+extension HealthData {
+    static func sample() -> HealthData {
+        return HealthData(
+          stepCount: 123,
+          heartRate: 123,
+          activeEnergyBurned: 123,
+          distanceWalkingRunning: 123,
+          bodyMass: 60,
+          height: 160,
+          mindfulMinutes: 1,
+          sleepSegments: [],
+          totalSleepMinutes: 12,
+          timestamp: Date()
+        ) // HealthData 모델 초기화에 맞게 수정
+    }
+}

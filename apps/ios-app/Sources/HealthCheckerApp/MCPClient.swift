@@ -1,5 +1,11 @@
+
 import Foundation
 
+extension Notification.Name {
+    static let mcpBackgroundUploadFinished = Notification.Name("mcpBackgroundUploadFinished")
+}
+
+@MainActor
 final class MCPClient: NSObject {
     private let serverUrl: String
     private let session: URLSession
@@ -60,6 +66,7 @@ final class MCPClient: NSObject {
             let errorMessage = String(data: data, encoding: .utf8) ?? "Unknown error"
             throw MCPError.serverError(statusCode: httpResponse.statusCode, message: errorMessage)
         }
+        MCPClient.saveLastSentAt()
     }
     
     func testConnection() async throws -> Bool {
@@ -102,10 +109,27 @@ final class MCPURLSessionDelegate: NSObject, URLSessionDelegate {
             print("[MCPClient] Background upload failed: \(error.localizedDescription)")
         } else {
             print("[MCPClient] Background upload completed: taskId=\(task.taskIdentifier)")
+            MCPClient.saveLastSentAt()
+            NotificationCenter.default.post(name: .mcpBackgroundUploadFinished, object: nil)
         }
     }
 
     func urlSessionDidFinishEvents(for session: URLSession) {
         print("[MCPClient] All background events finished")
+    }
+}
+
+
+extension MCPClient {
+    private static let lastSentAtKey = "mcp.lastSentAt"
+
+    static func loadLastSentAt() -> Date? {
+        UserDefaults.standard.object(forKey: lastSentAtKey) as? Date
+    }
+
+    @discardableResult
+    static func saveLastSentAt(_ date: Date = Date()) -> Date {
+        UserDefaults.standard.set(date, forKey: lastSentAtKey)
+        return date
     }
 }
