@@ -103,6 +103,7 @@ enum MCPError: Error, LocalizedError {
     }
 }
 
+@MainActor
 final class MCPURLSessionDelegate: NSObject, URLSessionDelegate {
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
         if let error = error {
