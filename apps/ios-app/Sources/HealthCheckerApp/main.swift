@@ -20,7 +20,7 @@ struct HealthCheckerApp: AsyncParsableCommand {
         }
         
         let healthManager = HealthDataManager()
-        let mcpClient = MCPClient(serverUrl: serverUrl)
+        let mcpClient = await MCPClient(serverUrl: serverUrl)
         
         do {
             // Request HealthKit authorization
