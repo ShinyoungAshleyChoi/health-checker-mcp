@@ -11,7 +11,7 @@ struct HealthData: Codable {
   let sleepSegments: [SleepSegment]?
   let totalSleepMinutes: Int?
   let timestamp: Date
-    
+
   init(
     stepCount: Double?,
     heartRate: Double?,
@@ -35,12 +35,12 @@ struct HealthData: Codable {
       self.totalSleepMinutes = totalSleepMinutes
       self.timestamp = timestamp
     }
-    
+
     var dictionary: [String: Any] {
         var dict: [String: Any] = [
             "timestamp": ISO8601DateFormatter().string(from: timestamp)
         ]
-        
+
         if let stepCount = stepCount {
             dict["stepCount"] = stepCount
         }
@@ -62,8 +62,7 @@ struct HealthData: Codable {
         if let mindfulMinutes = mindfulMinutes {
             dict["mindfulMinutes"] = mindfulMinutes
         }
-        
+
         return dict
     }
 }
-
