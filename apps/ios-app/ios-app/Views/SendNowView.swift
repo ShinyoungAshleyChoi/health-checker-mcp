@@ -31,9 +31,9 @@ struct SendNowView: View {
                 if isSending {
                     ProgressView().padding(.vertical, 8)
                 } else {
-                    Text("지금 전송")
+                  Text("지금 전송")
                         .font(.body)
-                        .fontWeight(.semibold)
+                        .fontWeight(.bold)
                         .padding(.vertical, 8)
                 }
             }

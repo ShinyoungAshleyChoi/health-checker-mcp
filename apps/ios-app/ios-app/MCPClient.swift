@@ -1,4 +1,3 @@
-
 import Foundation
 
 extension Notification.Name {
@@ -8,19 +7,29 @@ extension Notification.Name {
 @MainActor
 final class MCPClient: NSObject {
     private let serverUrl: String
-    private let session: URLSession
+    private let foregroundSession: URLSession
+    private let backgroundSession: URLSession
     private let sessionDelegate = MCPURLSessionDelegate()
     
     init(serverUrl: String) {
         self.serverUrl = serverUrl
-        let config = URLSessionConfiguration.background(withIdentifier: "com.yourapp.mcp.upload")
-        config.waitsForConnectivity = true
-        config.isDiscretionary = true
-        config.sessionSendsLaunchEvents = true
-        config.allowsCellularAccess = true
-        config.allowsExpensiveNetworkAccess = true
-        config.allowsConstrainedNetworkAccess = true
-        self.session = URLSession(configuration: config, delegate: sessionDelegate, delegateQueue: nil)
+        // Foreground session for immediate requests (async/await is OK here)
+        let fg = URLSessionConfiguration.default
+        fg.waitsForConnectivity = true
+        fg.allowsCellularAccess = true
+        fg.allowsExpensiveNetworkAccess = true
+        fg.allowsConstrainedNetworkAccess = true
+        self.foregroundSession = URLSession(configuration: fg)
+
+        // Background session for system-managed transfers (no completion handlers)
+        let bg = URLSessionConfiguration.background(withIdentifier: "com.yourapp.mcp.upload")
+        bg.waitsForConnectivity = true
+        bg.isDiscretionary = true
+        bg.sessionSendsLaunchEvents = true
+        bg.allowsCellularAccess = true
+        bg.allowsExpensiveNetworkAccess = true
+        bg.allowsConstrainedNetworkAccess = true
+        self.backgroundSession = URLSession(configuration: bg, delegate: sessionDelegate, delegateQueue: OperationQueue.main)
         super.init()
     }
 
@@ -35,7 +44,7 @@ final class MCPClient: NSObject {
         let jsonData = try JSONEncoder().encode(healthData)
         let fileURL = try writeJSONToTempFile(jsonData)
 
-        let task = session.uploadTask(with: request, fromFile: fileURL)
+        let task = backgroundSession.uploadTask(with: request, fromFile: fileURL)
         task.taskDescription = "mcp.healthdata.upload"
         task.resume()
     }
@@ -56,7 +65,7 @@ final class MCPClient: NSObject {
         let jsonData = try JSONEncoder().encode(healthData)
         request.httpBody = jsonData
         
-        let (data, response) = try await session.data(for: request)
+        let (data, response) = try await foregroundSession.data(for: request)
         
         guard let httpResponse = response as? HTTPURLResponse else {
             throw MCPError.invalidResponse
@@ -76,7 +85,7 @@ final class MCPClient: NSObject {
         request.timeoutInterval = 10.0
         
         do {
-            let (_, response) = try await session.data(for: request)
+            let (_, response) = try await foregroundSession.data(for: request)
             
             guard let httpResponse = response as? HTTPURLResponse else {
                 return false
@@ -104,7 +113,7 @@ enum MCPError: Error, LocalizedError {
 }
 
 @MainActor
-final class MCPURLSessionDelegate: NSObject, URLSessionDelegate {
+final class MCPURLSessionDelegate: NSObject, URLSessionDelegate, @preconcurrency URLSessionTaskDelegate {
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
         if let error = error {
             print("[MCPClient] Background upload failed: \(error.localizedDescription)")
