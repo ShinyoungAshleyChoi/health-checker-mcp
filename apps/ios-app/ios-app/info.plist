@@ -20,13 +20,24 @@
 	<string>LaunchScreen</string>
 	<key>UIRequiredDeviceCapabilities</key>
 	<array>
-		<string>Healthkit</string>
+		<string>healthkit</string>
 	</array>
 	<key>NSHealthShareUsageDescription</key>
 	<string>이 앱은 걸음 수, 심박수 등의 건강 데이터를 읽기 위해 접근 권한이 필요합니다.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>이 앱은 건강 데이터를 업데이트하기 위해 접근 권한이 필요합니다.</string>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
+	</array>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>background-processing</string>
+		<string>background-fetch</string>
+	</array>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>sychoi.ios-app.healthdata-sync</string>
 	</array>
 </dict>
 </plist>
