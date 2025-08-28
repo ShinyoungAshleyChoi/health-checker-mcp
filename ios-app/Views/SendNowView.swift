@@ -2,7 +2,7 @@ import SwiftUI
 import Combine
 
 struct SendNowView: View {
-    private let client = MCPClient(serverUrl: "https://localhost:8000")
+    private let client = MCPClient(serverUrl: "http://192.168.45.185:8000")
     
     @State private var lastSentAt: Date? = MCPClient.loadLastSentAt()
     @State private var isSending = false
@@ -41,26 +41,31 @@ struct SendNowView: View {
             .disabled(isSending)
         }
         .padding(24)
-        .onReceive(NotificationCenter.default.publisher(for: .mcpBackgroundUploadFinished)) { _ in
+        .onReceive(NotificationCenter.default.publisher(for: .mcpBackgroundUploadFinished).receive(on: RunLoop.main)) { _ in
+            self.isSending = false
             self.lastSentAt = MCPClient.loadLastSentAt()
-            self.statusText = "백그라운드 업로드 완료"
+            self.statusText = "업로드 완료"
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .mcpBackgroundUploadFailed).receive(on: RunLoop.main)) { note in
+            self.isSending = false
+            if let err = note.userInfo?["error"] as? String { self.statusText = "전송 실패: \(err)" }
+            else { self.statusText = "전송 실패" }
         }
     }
 
     @MainActor
     private func sendNow(client: MCPClient) async {
         isSending = true
-        defer { isSending = false }
-        statusText = "전송 중…"
+        statusText = "전송 요청 중…"
 
         do {
             // ⚠️ 실제 헬스 데이터 가져오는 코드로 교체 필요
             let healthData = HealthData.sample()
 
             try await client.sendHealthData(healthData)
-            self.lastSentAt = MCPClient.loadLastSentAt()
-            statusText = "전송 완료"
+            statusText = "업로드 시작"
         } catch {
+            isSending = false
             statusText = "전송 실패: \(error.localizedDescription)"
         }
     }

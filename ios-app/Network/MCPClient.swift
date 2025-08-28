@@ -1,7 +1,10 @@
 import Foundation
+import UIKit
 
 extension Notification.Name {
     static let mcpBackgroundUploadFinished = Notification.Name("mcpBackgroundUploadFinished")
+    static let mcpBackgroundUploadFailed = Notification.Name("mcpBackgroundUploadFailed")
+    
 }
 
 @MainActor
@@ -115,8 +118,20 @@ enum MCPError: Error, LocalizedError {
 @MainActor
 final class MCPURLSessionDelegate: NSObject, URLSessionDelegate, @preconcurrency URLSessionTaskDelegate {
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        print(">>> didCompleteWithError invoked for taskId=\(task.taskIdentifier), error=\(String(describing: error))")
+        if let httpResponse = task.response as? HTTPURLResponse {
+            print(">>> HTTP status code: \(httpResponse.statusCode)")
+        } else {
+            print(">>> No HTTPURLResponse on task")
+        }
+
         if let error = error {
             print("[MCPClient] Background upload failed: \(error.localizedDescription)")
+            NotificationCenter.default.post(
+                name: .mcpBackgroundUploadFailed,
+                object: nil,
+                userInfo: ["error": error.localizedDescription]
+            )
         } else {
             print("[MCPClient] Background upload completed: taskId=\(task.taskIdentifier)")
             MCPClient.saveLastSentAt()
@@ -126,6 +141,13 @@ final class MCPURLSessionDelegate: NSObject, URLSessionDelegate, @preconcurrency
 
     func urlSessionDidFinishEvents(for session: URLSession) {
         print("[MCPClient] All background events finished")
+        DispatchQueue.main.async {
+            if let appDelegate = UIApplication.shared.delegate as? AppDelegate,
+               let handler = appDelegate.backgroundCompletionHandler {
+                appDelegate.backgroundCompletionHandler = nil
+                handler()
+            }
+        }
     }
 }
 
