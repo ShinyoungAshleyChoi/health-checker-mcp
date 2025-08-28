@@ -12,6 +12,8 @@ import pyarrow.parquet as pq
 from fastapi import FastAPI, HTTPException, Request, BackgroundTasks
 from pydantic import BaseModel, Field
 import uvicorn
+import uuid
+import shutil
 
 
 # 데이터 모델 정의
@@ -35,41 +37,36 @@ class ParquetManager:
         self.data_dir = Path(data_dir)
         self.data_dir.mkdir(exist_ok=True)
 
-    def get_parquet_path(self, date_str: str = None) -> Path:
-        """날짜별 parquet 파일 경로 반환"""
+    def get_partition_dir(self, date_str: Optional[str] = None) -> Path:
+        """날짜별 파티션 디렉터리 경로 반환 (예: year=2025/month=08/day=28)"""
         if date_str is None:
-            date_str = datetime.now().strftime("%Y-%m-%d")
-        return self.data_dir / f"health_data_{date_str}.parquet"
+            ts = datetime.now()
+        else:
+            ts = datetime.strptime(date_str, "%Y-%m-%d")
+        return self.data_dir / f"year={ts.year:04d}/month={ts.month:02d}/day={ts.day:02d}"
 
     async def append_to_parquet(self, health_data: HealthData):
         """건강 데이터를 parquet 파일에 추가"""
         try:
-            # 현재 날짜로 파일명 결정
+            # 현재 날짜로 파티션 디렉터리 결정
             timestamp = datetime.fromisoformat(health_data.timestamp.replace('Z', '+00:00'))
             date_str = timestamp.strftime("%Y-%m-%d")
-            parquet_path = self.get_parquet_path(date_str)
+            partition_dir = self.get_partition_dir(date_str)
+            partition_dir.mkdir(parents=True, exist_ok=True)
 
             # 데이터를 DataFrame으로 변환
             data_dict = health_data.model_dump()
             data_dict['processed_at'] = datetime.now().isoformat()
 
-            # 단일 행 DataFrame 생성
+            # 단일 행 DataFrame 생성 후 part 파일로 저장
             new_df = pd.DataFrame([data_dict])
-
-            # 기존 파일이 있으면 읽어서 합치기
-            if parquet_path.exists():
-                existing_df = pd.read_parquet(parquet_path)
-                combined_df = pd.concat([existing_df, new_df], ignore_index=True)
-            else:
-                combined_df = new_df
-
-            # Parquet 파일로 저장
-            combined_df.to_parquet(parquet_path, engine='pyarrow', compression='snappy')
+            part_path = partition_dir / f"part-{uuid.uuid4()}.parquet"
+            new_df.to_parquet(part_path, engine='pyarrow', compression='snappy')
 
             return {
                 "status": "success",
-                "file_path": str(parquet_path),
-                "records_count": len(combined_df)
+                "file_path": str(part_path),
+                "records_count": 1
             }
 
         except Exception as e:
@@ -81,15 +78,23 @@ class ParquetManager:
     async def read_parquet_data(self, date_str: str = None, limit: int = 100) -> Dict[str, Any]:
         """Parquet 파일에서 데이터 읽기"""
         try:
-            parquet_path = self.get_parquet_path(date_str)
-
-            if not parquet_path.exists():
+            partition_dir = self.get_partition_dir(date_str)
+            if not partition_dir.exists():
                 return {
                     "status": "not_found",
-                    "message": f"파일을 찾을 수 없습니다: {parquet_path}"
+                    "message": f"디렉터리를 찾을 수 없습니다: {partition_dir}"
                 }
 
-            df = pd.read_parquet(parquet_path)
+            files = sorted(partition_dir.glob("*.parquet"))
+            if not files:
+                return {
+                    "status": "not_found",
+                    "message": f"해당 날짜에 저장된 파케이 파일이 없습니다: {partition_dir}"
+                }
+
+            # 모든 part 파일을 읽어서 병합
+            df_list = [pd.read_parquet(fp) for fp in files]
+            df = pd.concat(df_list, ignore_index=True)
 
             # 최신 데이터부터 limit만큼 반환
             df_limited = df.tail(limit)
@@ -114,7 +119,7 @@ class ParquetManager:
     async def get_file_stats(self) -> Dict[str, Any]:
         """저장된 Parquet 파일들의 통계 정보"""
         try:
-            files = list(self.data_dir.glob("health_data_*.parquet"))
+            files = list(self.data_dir.rglob("*.parquet"))
             stats = []
 
             for file_path in files:
@@ -122,7 +127,7 @@ class ParquetManager:
                 file_size = file_path.stat().st_size
 
                 stats.append({
-                    "filename": file_path.name,
+                    "path": str(file_path.relative_to(self.data_dir)),
                     "records_count": len(df),
                     "file_size_bytes": file_size,
                     "file_size_mb": round(file_size / (1024 * 1024), 2),
@@ -254,20 +259,20 @@ async def delete_health_data(date: str):
         # 날짜 형식 검증
         datetime.strptime(date, "%Y-%m-%d")
 
-        parquet_path = parquet_manager.get_parquet_path(date)
+        partition_dir = parquet_manager.get_partition_dir(date)
 
-        if not parquet_path.exists():
+        if not partition_dir.exists():
             raise HTTPException(
                 status_code=404,
-                detail=f"해당 날짜의 데이터 파일이 존재하지 않습니다: {date}"
+                detail=f"해당 날짜의 데이터 디렉터리가 존재하지 않습니다: {date}"
             )
 
-        parquet_path.unlink()
+        shutil.rmtree(partition_dir)
 
         return {
             "status": "success",
             "message": f"{date} 날짜의 건강 데이터가 삭제되었습니다.",
-            "deleted_file": str(parquet_path)
+            "deleted_path": str(partition_dir)
         }
 
     except ValueError:
