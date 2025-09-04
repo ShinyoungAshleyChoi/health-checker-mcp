@@ -11,6 +11,8 @@ struct HealthData: Codable {
   let sleepSegments: [SleepSegment]?
   let totalSleepMinutes: Int?
   let timestamp: Date
+  let isIncremental: Bool // 증분 데이터 여부
+  let sinceDateString: String? // 마지막 동기화 시간 (증분 데이터인 경우)
 
   init(
     stepCount: Double?,
@@ -22,7 +24,9 @@ struct HealthData: Codable {
     mindfulMinutes: Double?,
     sleepSegments: [SleepSegment]?,
     totalSleepMinutes: Int?,
-    timestamp: Date
+    timestamp: Date,
+    isIncremental: Bool = false,
+    sinceDate: Date? = nil
   ) {
       self.stepCount = stepCount
       self.heartRate = heartRate
@@ -34,12 +38,19 @@ struct HealthData: Codable {
       self.sleepSegments = sleepSegments
       self.totalSleepMinutes = totalSleepMinutes
       self.timestamp = timestamp
+      self.isIncremental = isIncremental
+      self.sinceDateString = sinceDate.map { ISO8601DateFormatter().string(from: $0) }
     }
 
     var dictionary: [String: Any] {
         var dict: [String: Any] = [
-            "timestamp": ISO8601DateFormatter().string(from: timestamp)
+            "timestamp": ISO8601DateFormatter().string(from: timestamp),
+            "isIncremental": isIncremental
         ]
+
+        if let sinceDateString = sinceDateString {
+            dict["sinceDate"] = sinceDateString
+        }
 
         if let stepCount = stepCount {
             dict["stepCount"] = stepCount

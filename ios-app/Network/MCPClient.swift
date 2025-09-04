@@ -4,7 +4,7 @@ import UIKit
 extension Notification.Name {
     static let mcpBackgroundUploadFinished = Notification.Name("mcpBackgroundUploadFinished")
     static let mcpBackgroundUploadFailed = Notification.Name("mcpBackgroundUploadFailed")
-
+    
 }
 
 @MainActor
@@ -13,7 +13,7 @@ final class MCPClient: NSObject {
     private let foregroundSession: URLSession
     private let backgroundSession: URLSession
     private let sessionDelegate = MCPURLSessionDelegate()
-
+    
     init(serverUrl: String) {
         self.serverUrl = serverUrl
         // Foreground session for immediate requests (async/await is OK here)
@@ -44,9 +44,7 @@ final class MCPClient: NSObject {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        let jsonData = try encoder.encode(healthData)
+        let jsonData = try JSONEncoder().encode(healthData)
         let fileURL = try writeJSONToTempFile(jsonData)
 
         let task = backgroundSession.uploadTask(with: request, fromFile: fileURL)
@@ -60,44 +58,42 @@ final class MCPClient: NSObject {
         try data.write(to: fileURL, options: [.atomic])
         return fileURL
     }
-
+    
     func sendHealthData(_ healthData: HealthData) async throws {
         let url = URL(string: "\(serverUrl)/health-data")!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        let jsonData = try encoder.encode(healthData)
+        
+        let jsonData = try JSONEncoder().encode(healthData)
         request.httpBody = jsonData
-
+        
         let (data, response) = try await foregroundSession.data(for: request)
-
+        
         guard let httpResponse = response as? HTTPURLResponse else {
             throw MCPError.invalidResponse
         }
-
+        
         guard 200...299 ~= httpResponse.statusCode else {
             let errorMessage = String(data: data, encoding: .utf8) ?? "Unknown error"
             throw MCPError.serverError(statusCode: httpResponse.statusCode, message: errorMessage)
         }
         MCPClient.saveLastSentAt()
     }
-
+    
     func testConnection() async throws -> Bool {
         let url = URL(string: "\(serverUrl)/health")!
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.timeoutInterval = 10.0
-
+        
         do {
             let (_, response) = try await foregroundSession.data(for: request)
-
+            
             guard let httpResponse = response as? HTTPURLResponse else {
                 return false
             }
-
+            
             return 200...299 ~= httpResponse.statusCode
         } catch {
             return false
@@ -108,7 +104,7 @@ final class MCPClient: NSObject {
 enum MCPError: Error, LocalizedError {
     case invalidResponse
     case serverError(statusCode: Int, message: String)
-
+    
     var errorDescription: String? {
         switch self {
         case .invalidResponse:
