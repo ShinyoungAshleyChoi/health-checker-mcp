@@ -811,4 +811,4 @@ final class HealthDataManager: ObservableObject {
       }
     }
   }
-}
+
