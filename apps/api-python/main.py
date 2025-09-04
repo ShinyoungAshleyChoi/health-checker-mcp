@@ -3,7 +3,7 @@ import json
 import asyncio
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Any
+from typing import Optional, Any, Dict, Union
 from contextlib import asynccontextmanager
 
 import pandas as pd
@@ -25,9 +25,12 @@ class HealthData(BaseModel):
     distanceWalkingRunning: Optional[float] = None
     bodyMass: Optional[float] = None
     height: Optional[float] = None
-    timestamp: str
-    deviceId: Optional[str] = None
-    userId: Optional[str] = None
+    mindfulMinutes: Optional[float] = None
+    sleepSegments: Optional[list] = None
+    totalSleepMinutes: Optional[int] = None
+    timestamp: Union[str, datetime]
+    isIncremental: bool = False
+    sinceDate: Optional[Union[str, datetime]] = None
 
 
 class ParquetManager:
@@ -48,9 +51,12 @@ class ParquetManager:
     async def append_to_parquet(self, health_data: HealthData):
         """건강 데이터를 parquet 파일에 추가"""
         try:
-            # 현재 날짜로 파티션 디렉터리 결정
-            timestamp = datetime.fromisoformat(health_data.timestamp.replace('Z', '+00:00'))
-            date_str = timestamp.strftime("%Y-%m-%d")
+            # 현재 날짜로 파티션 디렉터리 결정 (문자열/datetime 모두 지원)
+            if isinstance(health_data.timestamp, datetime):
+                ts = health_data.timestamp
+            else:
+                ts = datetime.fromisoformat(str(health_data.timestamp).replace('Z', '+00:00'))
+            date_str = ts.strftime("%Y-%m-%d")
             partition_dir = self.get_partition_dir(date_str)
             partition_dir.mkdir(parents=True, exist_ok=True)
 
