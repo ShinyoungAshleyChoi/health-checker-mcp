@@ -6,7 +6,7 @@ final class HealthDataManager: ObservableObject {
   // MARK: - First-install full history upload (send each sample individually)
   public func sendInitialHistoricalDataIfNeeded(
     daysBack: Int = 30,
-    sendFunction: (HealthData) async throws -> Void
+    sendFunction: @escaping @Sendable (HealthData) async throws -> Void
   ) async {
     let flagKey = "initialUploadDone"
     if UserDefaults.standard.bool(forKey: flagKey) {
@@ -29,7 +29,7 @@ final class HealthDataManager: ObservableObject {
   private func sendFullHistoricalData(
     from startDate: Date,
     to endDate: Date,
-    sendFunction: (HealthData) async throws -> Void
+    sendFunction: @escaping @Sendable (HealthData) async throws -> Void
   ) async throws {
     #if targetEnvironment(simulator)
     let mock = generateMockIncrementalHealthData(since: startDate)
@@ -53,7 +53,7 @@ final class HealthDataManager: ObservableObject {
   // MARK: - Individual senders for first-install full history
   private func sendIndividualStepCountData(
     from startDate: Date, to endDate: Date,
-    sendFunction: (HealthData) async throws -> Void
+    sendFunction: @escaping @Sendable (HealthData) async throws -> Void
   ) async throws {
     let type = HKQuantityType.quantityType(forIdentifier: .stepCount)!
     let predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate, options: .strictStartDate)
@@ -90,7 +90,7 @@ final class HealthDataManager: ObservableObject {
 
   private func sendIndividualActiveEnergyData(
     from startDate: Date, to endDate: Date,
-    sendFunction: (HealthData) async throws -> Void
+    sendFunction: @escaping @Sendable (HealthData) async throws -> Void
   ) async throws {
     let type = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned)!
     let predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate, options: .strictStartDate)
@@ -127,7 +127,7 @@ final class HealthDataManager: ObservableObject {
 
   private func sendIndividualDistanceData(
     from startDate: Date, to endDate: Date,
-    sendFunction: (HealthData) async throws -> Void
+    sendFunction: @escaping @Sendable (HealthData) async throws -> Void
   ) async throws {
     let type = HKQuantityType.quantityType(forIdentifier: .distanceWalkingRunning)!
     let predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate, options: .strictStartDate)
@@ -164,7 +164,7 @@ final class HealthDataManager: ObservableObject {
 
   private func sendIndividualMindfulData(
     from startDate: Date, to endDate: Date,
-    sendFunction: (HealthData) async throws -> Void
+    sendFunction: @escaping @Sendable (HealthData) async throws -> Void
   ) async throws {
     let type = HKCategoryType.categoryType(forIdentifier: .mindfulSession)!
     let predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate, options: .strictStartDate)
@@ -202,7 +202,7 @@ final class HealthDataManager: ObservableObject {
 
   private func sendIndividualSleepData(
     from startDate: Date, to endDate: Date,
-    sendFunction: (HealthData) async throws -> Void
+    sendFunction: @escaping @Sendable (HealthData) async throws -> Void
   ) async throws {
     let type = HKCategoryType.categoryType(forIdentifier: .sleepAnalysis)!
     let predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate, options: .strictStartDate)
@@ -322,14 +322,23 @@ final class HealthDataManager: ObservableObject {
     let samples = try await sleepSamples
     let (segments, total) = samples.map(mapSleepSamples) ?? ([], 0)
 
-    return try await HealthData(
-      stepCount: stepCount,
-      heartRate: heartRate,
-      activeEnergyBurned: activeEnergy,
-      distanceWalkingRunning: distance,
-      bodyMass: bodyMass,
-      height: height,
-      mindfulMinutes: mindfulMinutes,
+    // Resolve async lets before building the payload
+    let sc = try await stepCount
+    let hr = try await heartRate
+    let ae = try await activeEnergy
+    let dist = try await distance
+    let bm = try await bodyMass
+    let ht = try await height
+    let mm = try await mindfulMinutes
+
+    return HealthData(
+      stepCount: sc,
+      heartRate: hr,
+      activeEnergyBurned: ae,
+      distanceWalkingRunning: dist,
+      bodyMass: bm,
+      height: ht,
+      mindfulMinutes: mm,
       sleepSegments: segments.isEmpty ? nil : segments,
       totalSleepMinutes: segments.isEmpty ? nil : total,
       timestamp: now,
@@ -468,11 +477,12 @@ final class HealthDataManager: ObservableObject {
   }
 
   // 증분 데이터 읽기 - 각 변동분을 개별 전송
-  func readAndSendIncrementalHealthData(since lastSyncDate: Date, sendFunction: (HealthData) async throws -> Void) async throws {
+  func readAndSendIncrementalHealthData(since lastSyncDate: Date, sendFunction: @escaping @Sendable (HealthData) async throws -> Void) async throws {
     // 시뮬레이터에서는 모의 증분 데이터 반환
     #if targetEnvironment(simulator)
     print("[HealthDataManager] 시뮬레이터에서 증분 데이터 생성 및 전송: \(lastSyncDate) 이후")
-    try await generateAndSendMockIncrementalHealthData(since: lastSyncDate, sendFunction: sendFunction)
+    let mock = generateMockIncrementalHealthData(since: lastSyncDate)
+    try await sendFunction(mock)
     return
     #else
     let now = Date()
@@ -515,7 +525,7 @@ final class HealthDataManager: ObservableObject {
   }
 
   // 개별 심박수 데이터 전송
-  private func sendIndividualHeartRateData(from startDate: Date, to endDate: Date, sendFunction: (HealthData) async throws -> Void) async throws {
+  private func sendIndividualHeartRateData(from startDate: Date, to endDate: Date, sendFunction: @escaping @Sendable (HealthData) async throws -> Void) async throws {
     let heartRateType = HKQuantityType.quantityType(forIdentifier: .heartRate)!
     let predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate, options: .strictStartDate)
     let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: true)
@@ -560,7 +570,7 @@ final class HealthDataManager: ObservableObject {
   }
 
   // 개별 체중 데이터 전송
-  private func sendIndividualBodyMassData(from startDate: Date, to endDate: Date, sendFunction: (HealthData) async throws -> Void) async throws {
+  private func sendIndividualBodyMassData(from startDate: Date, to endDate: Date, sendFunction: @escaping @Sendable (HealthData) async throws -> Void) async throws {
     let bodyMassType = HKQuantityType.quantityType(forIdentifier: .bodyMass)!
     let predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate, options: .strictStartDate)
     let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: true)
@@ -605,7 +615,7 @@ final class HealthDataManager: ObservableObject {
   }
 
   // 개별 키 데이터 전송
-  private func sendIndividualHeightData(from startDate: Date, to endDate: Date, sendFunction: (HealthData) async throws -> Void) async throws {
+  private func sendIndividualHeightData(from startDate: Date, to endDate: Date, sendFunction: @escaping @Sendable (HealthData) async throws -> Void) async throws {
     let heightType = HKQuantityType.quantityType(forIdentifier: .height)!
     let predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate, options: .strictStartDate)
     let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: true)
@@ -789,11 +799,7 @@ final class HealthDataManager: ObservableObject {
       totalSleepMinutes: totalSleepMinutes,
       timestamp: now,
       isIncremental: true,
-      sinceDate: lastSyncDate,
-      // 모든 중간 데이터들
-      allHeartRates: allHeartRates.isEmpty ? nil : allHeartRates,
-      allBodyMass: allBodyMass.isEmpty ? nil : allBodyMass,
-      allHeight: allHeight.isEmpty ? nil : allHeight
+      sinceDate: lastSyncDate
     )
   }
   }

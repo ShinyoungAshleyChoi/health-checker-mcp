@@ -125,7 +125,7 @@ final class BackgroundTaskManager: ObservableObject {
                 print("[BackgroundTask] 마지막 백그라운드 동기화: \(lastBackgroundSync)")
 
                 try await healthDataManager.readAndSendIncrementalHealthData(since: lastBackgroundSync) { healthData in
-                    try mcpClient.sendHealthDataInBackground(healthData)
+                  try await self.mcpClient.sendHealthDataInBackground(healthData)
                 }
             }
 
@@ -180,7 +180,7 @@ final class BackgroundTaskManager: ObservableObject {
                 // 이후에는 증분 데이터를 개별 전송
                 let lastBackgroundSync = lastBackgroundSyncAt ?? Date.distantPast
                 try await healthDataManager.readAndSendIncrementalHealthData(since: lastBackgroundSync) { healthData in
-                    try mcpClient.sendHealthDataInBackground(healthData)
+                  try await self.mcpClient.sendHealthDataInBackground(healthData)
                 }
             }
 
@@ -209,7 +209,7 @@ final class BackgroundTaskManager: ObservableObject {
                 // 이후에는 증분 데이터를 개별 전송
                 let lastBackgroundSync = lastBackgroundSyncAt ?? Date.distantPast
                 try await healthDataManager.readAndSendIncrementalHealthData(since: lastBackgroundSync) { healthData in
-                    try mcpClient.sendHealthDataInBackground(healthData)
+                  try await self.mcpClient.sendHealthDataInBackground(healthData)
                 }
             }
 
@@ -261,7 +261,7 @@ final class BackgroundTaskManager: ObservableObject {
                 print("[BackgroundTask] 마지막 백그라운드 동기화: \(lastBackgroundSync)")
 
                 try await healthDataManager.readAndSendIncrementalHealthData(since: lastBackgroundSync) { healthData in
-                    try mcpClient.sendHealthDataInBackground(healthData)
+                  try await self.mcpClient.sendHealthDataInBackground(healthData)
                 }
             }
 
