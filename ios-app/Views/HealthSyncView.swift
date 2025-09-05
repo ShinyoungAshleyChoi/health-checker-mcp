@@ -45,6 +45,10 @@ struct HealthSyncView: View {
         .task {
             await checkServerConnection()
             await requestHealthPermissionIfNeeded()
+            // 첫 설치 시 자동 전체 동기화 (수동 전송과 무관)
+            if backgroundTaskManager.hasDoneInitialFullSync == false && hasHealthPermission {
+                await backgroundTaskManager.triggerHealthDataSync()
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
             backgroundTaskManager.handleAppDidEnterBackground()
@@ -331,39 +335,22 @@ struct HealthSyncView: View {
         manualSendStatus = "헬스 데이터 읽는 중..."
 
         do {
-            // 첫 설치인지 확인 (마지막 수동 전송 기록이 없으면 첫 설치)
-            let isFirstLaunch = UserDefaults.standard.object(forKey: "lastManualSentAt") == nil
+            // 수동 전송은 항상 증분만 전송 (첫 설치 전체 동기화는 자동 처리)
+            let baseline = backgroundTaskManager.lastBackgroundSyncAt ?? lastManualSentAt ?? Date.distantPast
+            print("[HealthSyncView] 수동 전송 - 증분 기준 시각: \(baseline)")
+            manualSendStatus = "증분 데이터 읽는 중..."
 
-            if isFirstLaunch {
-                // 첫 설치시 전체 데이터 전송
-                print("[HealthSyncView] 첫 설치 감지 - 전체 헬스데이터 전송")
-                manualSendStatus = "첫 설치 - 전체 데이터 읽는 중..."
-                let healthData = try await healthDataManager.readHealthData()
-
-                manualSendStatus = "서버로 전송 중..."
-                try await mcpClient.sendHealthData(healthData)
-
-                lastManualSentAt = MCPClient.loadLastSentAt()
-                manualSendStatus = "첫 설치 - 전체 데이터 전송 완료"
-            } else {
-                // 이후에는 증분 데이터를 개별 전송
-                let lastManualSync = lastManualSentAt ?? Date.distantPast
-                print("[HealthSyncView] 마지막 수동 전송 이후 증분 데이터 개별 전송: \(lastManualSync)")
-                manualSendStatus = "증분 데이터 읽는 중..."
-
-                var sendCount = 0
-                try await healthDataManager.readAndSendIncrementalHealthData(since: lastManualSync) { healthData in
-                    sendCount += 1
-                    await MainActor.run {
-                        manualSendStatus = "서버로 전송 중... (\(sendCount))"
-                    }
-                    try await mcpClient.sendHealthData(healthData)
+            var sendCount = 0
+            try await healthDataManager.readAndSendIncrementalHealthData(since: baseline) { healthData in
+                sendCount += 1
+                await MainActor.run {
+                    manualSendStatus = "서버로 전송 중... (\(sendCount))"
                 }
-
-                lastManualSentAt = MCPClient.loadLastSentAt()
-                manualSendStatus = "증분 데이터 전송 완료 (총 \(sendCount)건)"
+                try await mcpClient.sendHealthData(healthData)
             }
 
+            lastManualSentAt = MCPClient.loadLastSentAt()
+            manualSendStatus = "증분 데이터 전송 완료 (총 \(sendCount)건)"
         } catch {
             manualSendStatus = "전송 실패: \(error.localizedDescription)"
         }

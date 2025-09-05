@@ -25,6 +25,11 @@ final class BackgroundTaskManager: ObservableObject {
     @Published var lastBackgroundSyncAt: Date? = UserDefaults.standard.object(forKey: "lastBackgroundSyncAt") as? Date
     @Published var backgroundSyncStatus: String = "백그라운드 동기화 준비됨"
     @Published var isSimulator: Bool = false
+    @Published var hasDoneInitialFullSync = UserDefaults.standard.bool(forKey: "hasDoneInitialFullSync") {
+        didSet {
+            UserDefaults.standard.set(hasDoneInitialFullSync, forKey: "hasDoneInitialFullSync")
+        }
+    }
 
     private init() {
         // 시뮬레이터 감지
@@ -111,21 +116,21 @@ final class BackgroundTaskManager: ObservableObject {
         }
 
         do {
-            // 첫 백그라운드 전송인지 확인
-            let isFirstBackgroundSync = UserDefaults.standard.object(forKey: "lastBackgroundSyncAt") == nil
+            // 첫 설치 이후 최초 1회만 전체 동기화, 이후에는 항상 증분 동기화
+            let needsFullSync = (hasDoneInitialFullSync == false)
 
-            if isFirstBackgroundSync {
-                // 첫 백그라운드 전송시 전체 데이터
-                print("[BackgroundTask] 첫 백그라운드 동기화 - 전체 데이터 전송")
+            if needsFullSync {
+                print("[BackgroundTask] 최초 전체 동기화 - 전체 데이터 전송")
                 let healthData = try await healthDataManager.readHealthData()
                 try mcpClient.sendHealthDataInBackground(healthData)
+                // 최초 전체 동기화 완료로 표시
+                hasDoneInitialFullSync = true
             } else {
-                // 이후에는 증분 데이터를 개별 전송
                 let lastBackgroundSync = lastBackgroundSyncAt ?? Date.distantPast
-                print("[BackgroundTask] 마지막 백그라운드 동기화: \(lastBackgroundSync)")
+                print("[BackgroundTask] 증분 동기화, 기준 시각: \(lastBackgroundSync)")
 
                 try await healthDataManager.readAndSendIncrementalHealthData(since: lastBackgroundSync) { healthData in
-                  try await self.mcpClient.sendHealthDataInBackground(healthData)
+                    try await self.mcpClient.sendHealthDataInBackground(healthData)
                 }
             }
 
@@ -134,7 +139,7 @@ final class BackgroundTaskManager: ObservableObject {
             // 성공 시 상태 업데이트
             lastBackgroundSyncAt = Date()
             UserDefaults.standard.set(lastBackgroundSyncAt, forKey: "lastBackgroundSyncAt")
-            backgroundSyncStatus = isFirstBackgroundSync ? "첫 전체 동기화 완료" : "백그라운드 동기화 완료"
+            backgroundSyncStatus = "백그라운드 동기화 완료"
 
             task.setTaskCompleted(success: true)
             print("[BackgroundTask] 백그라운드 동기화 성공")
@@ -168,25 +173,24 @@ final class BackgroundTaskManager: ObservableObject {
 
         // 시뮬레이터에서는 직접 동기화 실행
         do {
-            // 첫 백그라운드 테스트인지 확인
-            let isFirstBackgroundSync = UserDefaults.standard.object(forKey: "lastBackgroundSyncAt") == nil
+            // 첫 설치 이후 최초 1회만 전체 동기화, 이후에는 항상 증분 동기화 (시뮬레이터)
+            let needsFullSync = (hasDoneInitialFullSync == false)
 
-            if isFirstBackgroundSync {
-                // 첫 백그라운드 테스트시 전체 데이터
-                print("[BackgroundTask] 시뮬레이터: 첫 테스트 - 전체 데이터")
+            if needsFullSync {
+                print("[BackgroundTask] 시뮬레이터: 최초 전체 동기화 - 전체 데이터")
                 let healthData = try await healthDataManager.readHealthData()
                 try mcpClient.sendHealthDataInBackground(healthData)
+                hasDoneInitialFullSync = true
             } else {
-                // 이후에는 증분 데이터를 개별 전송
                 let lastBackgroundSync = lastBackgroundSyncAt ?? Date.distantPast
                 try await healthDataManager.readAndSendIncrementalHealthData(since: lastBackgroundSync) { healthData in
-                  try await self.mcpClient.sendHealthDataInBackground(healthData)
+                    try await self.mcpClient.sendHealthDataInBackground(healthData)
                 }
             }
 
             lastBackgroundSyncAt = Date()
             UserDefaults.standard.set(lastBackgroundSyncAt, forKey: "lastBackgroundSyncAt")
-            backgroundSyncStatus = isFirstBackgroundSync ? "시뮬레이터: 첫 전체 테스트 완료" : "시뮬레이터: 테스트 동기화 완료"
+            backgroundSyncStatus = "시뮬레이터: 테스트 동기화 완료"
 
         } catch {
             backgroundSyncStatus = "시뮬레이터: 테스트 동기화 실패 - \(error.localizedDescription)"
@@ -197,25 +201,24 @@ final class BackgroundTaskManager: ObservableObject {
         backgroundSyncStatus = "테스트 동기화 중..."
 
         do {
-            // 첫 백그라운드 테스트인지 확인
-            let isFirstBackgroundSync = UserDefaults.standard.object(forKey: "lastBackgroundSyncAt") == nil
+            // 첫 설치 이후 최초 1회만 전체 동기화, 이후에는 항상 증분 동기화
+            let needsFullSync = (hasDoneInitialFullSync == false)
 
-            if isFirstBackgroundSync {
-                // 첫 백그라운드 테스트시 전체 데이터
-                print("[BackgroundTask] 첫 테스트 - 전체 데이터 전송")
+            if needsFullSync {
+                print("[BackgroundTask] 최초 전체 테스트 동기화 - 전체 데이터 전송")
                 let healthData = try await healthDataManager.readHealthData()
                 try mcpClient.sendHealthDataInBackground(healthData)
+                hasDoneInitialFullSync = true
             } else {
-                // 이후에는 증분 데이터를 개별 전송
                 let lastBackgroundSync = lastBackgroundSyncAt ?? Date.distantPast
                 try await healthDataManager.readAndSendIncrementalHealthData(since: lastBackgroundSync) { healthData in
-                  try await self.mcpClient.sendHealthDataInBackground(healthData)
+                    try await self.mcpClient.sendHealthDataInBackground(healthData)
                 }
             }
 
             lastBackgroundSyncAt = Date()
             UserDefaults.standard.set(lastBackgroundSyncAt, forKey: "lastBackgroundSyncAt")
-            backgroundSyncStatus = isFirstBackgroundSync ? "첫 전체 테스트 완료" : "테스트 동기화 완료"
+            backgroundSyncStatus = "테스트 동기화 완료"
 
         } catch {
             backgroundSyncStatus = "테스트 동기화 실패: \(error.localizedDescription)"
@@ -247,21 +250,20 @@ final class BackgroundTaskManager: ObservableObject {
         backgroundSyncStatus = "헬스데이터 변경 감지 - 동기화 중..."
 
         do {
-            // 첫 자동 동기화인지 확인
-            let isFirstBackgroundSync = UserDefaults.standard.object(forKey: "lastBackgroundSyncAt") == nil
+            // 설치 후 최초 1회 전체 동기화, 이후 변경분만 증분 동기화
+            let needsFullSync = (hasDoneInitialFullSync == false)
 
-            if isFirstBackgroundSync {
-                // 첫 자동 동기화시 전체 데이터
-                print("[BackgroundTask] 첫 자동 동기화 - 전체 데이터 전송")
+            if needsFullSync {
+                print("[BackgroundTask] 최초 자동 동기화 - 전체 데이터 전송")
                 let healthData = try await healthDataManager.readHealthData()
                 try mcpClient.sendHealthDataInBackground(healthData)
+                hasDoneInitialFullSync = true
             } else {
-                // 이후에는 증분 데이터를 개별 전송
                 let lastBackgroundSync = lastBackgroundSyncAt ?? Date.distantPast
-                print("[BackgroundTask] 마지막 백그라운드 동기화: \(lastBackgroundSync)")
+                print("[BackgroundTask] 자동 증분 동기화, 기준 시각: \(lastBackgroundSync)")
 
                 try await healthDataManager.readAndSendIncrementalHealthData(since: lastBackgroundSync) { healthData in
-                  try await self.mcpClient.sendHealthDataInBackground(healthData)
+                    try await self.mcpClient.sendHealthDataInBackground(healthData)
                 }
             }
 
@@ -270,7 +272,7 @@ final class BackgroundTaskManager: ObservableObject {
             // 성공 시 상태 업데이트
             lastBackgroundSyncAt = Date()
             UserDefaults.standard.set(lastBackgroundSyncAt, forKey: "lastBackgroundSyncAt")
-            backgroundSyncStatus = isFirstBackgroundSync ? "첫 전체 자동 동기화 완료" : "자동 증분 동기화 완료"
+            backgroundSyncStatus = "자동 동기화 완료"
 
             print("[BackgroundTask] 헬스데이터 변경으로 인한 자동 동기화 성공")
 
