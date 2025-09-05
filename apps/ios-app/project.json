@@ -6,19 +6,19 @@
     "build": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "cd apps/ios-app && swift build"
+        "command": "bash -lc 'cd apps/ios-app && if [ -f Package.swift ]; then swift build; else xcodebuild -project HealthCheckerApp.xcodeproj -scheme HealthCheckerApp -sdk iphonesimulator -destination \"platform=iOS Simulator,name=iPhone 15\" build; fi'"
       }
     },
     "run": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "cd apps/ios-app && swift run HealthCheckerApp"
+        "command": "bash -lc 'cd apps/ios-app && if [ -f Package.swift ]; then swift run HealthCheckerApp; else echo \"Run is only supported for SwiftPM packages. Open the Xcode project and run the app there.\"; fi'"
       }
     },
     "test": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "cd apps/ios-app && swift test"
+        "command": "bash -lc 'cd apps/ios-app && if [ -f Package.swift ]; then swift test; else xcodebuild -project HealthCheckerApp.xcodeproj -scheme HealthCheckerApp -sdk iphonesimulator -destination \"platform=iOS Simulator,name=iPhone 15\" test; fi'"
       }
     },
     "clean": {

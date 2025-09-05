@@ -29,22 +29,9 @@
 		6A66E5A32E5C55C10019A1FC /* ios-appUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "ios-appUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		6A66E5CF2E6012BB0019A1FC /* Exceptions for "ios-app" folder in "ios-app" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				info.plist,
-			);
-			target = 6A66E58B2E5C55BE0019A1FC /* ios-app */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
-
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		6A66E58E2E5C55BE0019A1FC /* ios-app */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				6A66E5CF2E6012BB0019A1FC /* Exceptions for "ios-app" folder in "ios-app" target */,
-			);
 			path = "ios-app";
 			sourceTree = "<group>";
 		};
